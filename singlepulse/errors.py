@@ -1,0 +1,2 @@
+class SinglePulseError(Exception):
+    pass
