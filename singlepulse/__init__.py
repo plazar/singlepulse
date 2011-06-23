@@ -1,8 +1,7 @@
-__all__ = ['cands', 'plot', 'search', 'utils', 'errors', 'grouping']
+__all__ = ['cands', 'plot', 'search', 'utils', 'errors']
 
 import cands
 import plot
 import errors
 import utils
 import search
-import grouping
