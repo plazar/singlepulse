@@ -61,14 +61,14 @@ def find_single_pulses(datfn, downfacts, threshold, search_badblocks=False):
         for off, on in offregions:
             offregion_mask[off:on] = True
 
+    blocknums = np.arange(len(timeseries))/DETRENDLEN
+    bad_block_mask = np.in1d(blocknums, bad_blocks)
+    
     # Mask bad blocks, or not
     if search_badblocks:
-        bad_block_mask = np.zeros(timeseries.shape, dtype=np.bool)
+        tomask = np.bitwise_or(offregion_mask, bad_block_mask)
     else:
-        blocknums = np.arange(len(timeseries))/DETRENDLEN
-        bad_block_mask = np.in1d(blocknums, bad_blocks)
-    
-    tomask = np.bitwise_or(offregion_mask, bad_block_mask)
+        tomask = offregion_mask
     masked_timeseries = np.ma.masked_array(timeseries, mask=tomask, fill_value=0.0)
 
     # Step through the data and search each chunk
@@ -90,7 +90,11 @@ def find_single_pulses(datfn, downfacts, threshold, search_badblocks=False):
     # A little pruning
     candlist.prune_related2(np.max(downfacts))
     candlist.prune_border_cases()
-    print "  Found %d pulse candidates" % len(candlist)
+    if search_badblocks:
+        print "  Found %d pulse candidates (%d are in bad blocks)" % \
+                (len(candlist), len([c for c in candlist if c.from_badblock]))
+    else:
+        print "  Found %d pulse candidates" % len(candlist)
     
     # Finally return the candidates collected
     return candlist
@@ -306,6 +310,8 @@ class Chunk(object):
             hibins = np.flatnonzero(smoothdata>threshold)
             for localbin in hibins:
                 bin = localbin+self.lobin
-                candlist.append(cands.Candidate(self.info.DM, smoothdata[localbin], 
-                                                self.info.dt*bin, bin, factor))
+                from_badblock = self.data[OVERLAP:-OVERLAP].mask[localbin]
+                c = cands.Candidate(self.info.DM, smoothdata[localbin], 
+                                    self.info.dt*bin, bin, factor, from_badblock)
+                candlist.append(c)
         return candlist
