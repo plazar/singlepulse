@@ -9,41 +9,17 @@ import errors
 class Candidate:
     """Single pulse candidate object.
     """
-    def __init__(self, DM, sigma, time, bin, downfact, from_badblock=False):
+    def __init__(self, DM, sigma, time, bin, downfact):
         self.DM = DM
         self.sigma = sigma
         self.time = time
         self.bin = bin
         self.downfact = downfact
         self.duration = self.time/self.bin*self.downfact
-        self.from_badblock = from_badblock
 
     def __str__(self):
-        # Default to old format
-        return self.to_string(bb_col=False)
-
-    def to_string(self, bb_col=True):
-        """Return a string representation of the single pulse
-            candidate.
-
-            Input:
-                bb_col: Boolean value. If True include a column
-                    that states whether or not the candidate was
-                    found in a bad block. A '1' in this column
-                    means the candidate was found in a bad block.
-                    (Default: Include bad block column.)
-        
-            Output;
-                candstr: String representation of the candidate.
-        """
-        if bb_col:
-            candstr = "%7.2f %7.2f %13.6f %10d     %3d %15d\n"%\
-               (self.DM, self.sigma, self.time, self.bin, self.downfact, \
-                    self.from_badblock)
-        else:
-            candstr = "%7.2f %7.2f %13.6f %10d     %3d\n"%\
+        return "%7.2f %7.2f %13.6f %10d     %3d\n"%\
                (self.DM, self.sigma, self.time, self.bin, self.downfact)
-        return candstr
 
     def __cmp__(self, other):
 	# Sort by bin by default
@@ -178,15 +154,12 @@ class CandidateList(list):
             for ii in toremove:
                 self.pop(ii)
 
-    def write_singlepulses(self, outfn, bb_col=False):
+    def write_singlepulses(self, outfn):
         """Write single pulses in CandidateList to 'outfn'.
         
             Inputs:
                 outfn: file to write to. Either an already opened 
                         file object or a filename.
-                bb_col: Include a column showing whether or not an
-                        candidate was found in a bad block.
-                        (Default: don't write this column).
         """
         if type(outfn) == types.StringType:
             outfile = open(outfn, 'w')
@@ -196,14 +169,9 @@ class CandidateList(list):
             toclose = False
  
         if len(self):
-            if bb_col:
-                outfile.write("# DM      Sigma      Time (s)     " \
-                                "Sample    Downfact    Found in badblock?\n")
-            else:
-                outfile.write("# DM      Sigma      Time (s)     " \
-                                "Sample    Downfact\n")
+            outfile.write("# DM      Sigma      Time (s)     Sample    Downfact\n")
             for cand in self:
-                outfile.write(cand.to_string(bb_col))
+                outfile.write(str(cand))
         
         if toclose:
             # File was opened here, so close it.
@@ -231,14 +199,8 @@ def read_singlepulses(infile):
     
     info = infodata.infodata(filenmbase+".inf")
     if os.path.getsize(infile):
-        colnames =  ['DM', 'sigma', 'time', 'bin', 'downfact', 'from_badblock']
-        typecodes = ['f8', 'f8', 'f8', 'i8', 'i8', 'bool']
-        canddata = list(np.loadtxt(infile, unpack=True))
-        for ii, (coldata, colname, typecode) in \
-                enumerate(zip(canddata, colnames, typecodes)):
-            canddata[ii] = coldata.astype(typecode)
-        # Combine column-vectors into row-vectors, 
-        canddata = zip(*canddata)
+        canddata = np.loadtxt(infile, dtype=[('DM','f8'), ('sigma','f8'), ('time','f8'), ('bin','i8'), ('downfact','i8')])
+        canddata = np.atleast_1d(canddata)
         candlist = CandidateList([Candidate(*data) for data in canddata])
     else:
         candlist = CandidateList()

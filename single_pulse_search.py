@@ -11,8 +11,6 @@ import sys
 import optparse
 
 import numpy as np
-
-import infodata
 import singlepulse
 
 def main():
@@ -46,8 +44,7 @@ def main():
                             search_badblocks=options.search_badblocks)
         # Write out info for singlepulse files found
         print "Writing *.singlepulse file..."
-        candlist.write_singlepulses(datfn[:-4]+".singlepulse", \
-                            bb_col=options.search_badblocks)
+        candlist.write_singlepulses(datfn[:-4]+".singlepulse")
     
 
 if __name__ == '__main__':
