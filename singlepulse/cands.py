@@ -9,13 +9,14 @@ import errors
 class Candidate:
     """Single pulse candidate object.
     """
-    def __init__(self, DM, sigma, time, bin, downfact):
+    def __init__(self, DM, sigma, time, bin, downfact, inf):
         self.DM = DM
         self.sigma = sigma
         self.time = time
         self.bin = bin
         self.downfact = downfact
-        self.duration = self.time/self.bin*self.downfact
+        self.inf = inf
+        self.duration = self.inf.dt*self.downfact
 
     def __str__(self):
         return "%7.2f %7.2f %13.6f %10d     %3d\n"%\
@@ -29,26 +30,12 @@ class Candidate:
 class CandidateList(list):
     def __init__(self, *args):
         super(CandidateList, self).__init__(*args)
-        self.infos = {} # Dictionary of infodata objects keyed by DM
 
     def get(self, key):
         return np.array([getattr(c, key) for c in self])
 
     def __getattr__(self, key):
         return self.get(key)
-
-    def __add__(self, other):
-        result = CandidateList(super(CandidateList, self).__add__(other))
-        result.infos = self.infos
-        for info in other.infos.values():
-            result.add_info(info)
-        return result
-
-    def __iadd__(self, other):
-        return self + other
-
-    def add_info(self, info):
-        self.infos[info.DM] = info
 
     def trim(self, dmlim=(0,np.inf), timelim=(0,np.inf), minsigma=0):
         """Remove candidates that are outside given DM or time
@@ -62,9 +49,6 @@ class CandidateList(list):
                     c.time<timelim[0] or c.time>timelim[1] or \
                     c.DM<dmlim[0] or c.DM>dmlim[1]:
                 self.pop(jj)
-        for dm in self.infos.keys():
-            if dm<dmlim[0] or dm>dmlim[1]:
-                self.infos.pop(dm)
 
     def prune_related1(self):
         """Remove candidates that are close to other candidates
@@ -107,6 +91,8 @@ class CandidateList(list):
  
             Note: Pruning is non-reversible
         """
+        if not len(self):
+            return
         self.sort()
         toremove = set()
         for ii in range(0, len(self)-1):
@@ -136,7 +122,10 @@ class CandidateList(list):
         """Ignore those that are locate in a half-width
             of the boundary between data and padding.
         """
-        info0 = self.infos[min(self.infos.keys())]
+        if not len(self):
+            return
+        info0 = self[np.argmin(self.DM)].inf
+        
         if info0.breaks:
             offregions = zip([x[1] for x in info0.onoff[:-1]],
                              [x[0] for x in info0.onoff[1:]])
@@ -198,12 +187,14 @@ def read_singlepulses(infile):
     filenmbase = infile[:index]
     
     info = infodata.infodata(filenmbase+".inf")
+    candlist = CandidateList()
     if os.path.getsize(infile):
-        canddata = np.loadtxt(infile, dtype=[('DM','f8'), ('sigma','f8'), ('time','f8'), ('bin','i8'), ('downfact','i8')])
+        canddata = np.loadtxt(infile, dtype=[('DM','f8'), ('sigma','f8'), \
+                                             ('time','f8'), ('bin','i8'), \
+                                             ('downfact','i8')])
         canddata = np.atleast_1d(canddata)
-        candlist = CandidateList([Candidate(*data) for data in canddata])
-    else:
-        candlist = CandidateList()
-    candlist.add_info(info)
+        for (dm, sigma, time, binnum, downfact) in canddata:
+            cand = Candidate(dm, sigma, time, binnum, downfact, info)
+            candlist.append(cand)
     return candlist
 

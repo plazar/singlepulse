@@ -7,74 +7,8 @@ import matplotlib.pyplot as plt
 
 import cands
 
-def plot(candlist, savefn=None, interactive=False, \
-                timelim=None, minsigma=None):
-    """Plot the candidates in 'candlist'.
 
-        Inputs:
-            candlist: a list of singlepulse Candidate objects.
-                        (as defined in singlepulse/cands.py)
-            savefn: file to save plot as. If 'savefn' is None
-                    the plot is not saved. (Default: Do not
-                    save the plot).
-            interactive: show the plot interactively. (Default:
-                    False, do not show plot).
-            timelim: limits on time. (Default: None)
-            minsigma: minimum sigma. (Default: None)
-    """
-    newplot(candlist, timelim, minsigma)
-
-    if type(savefn) == types.StringType:
-        print "Saving to file (%s)..." % savefn
-        plt.savefig(savefn, papertype='letter', orientation='landscape')
-    elif savefn is not None:
-        raise ValueError("'savefn' must be a string.")
-    if interactive:
-        plt.figtext(0.98, 0.02, "Press 'Q' to quit", ha="right", size='x-small')
-        def quit(event):
-            if event.key in ('q', 'Q'):
-                print "Quitting..."
-                plt.close(event.canvas.figure)
-        plt.gcf().canvas.mpl_connect('key_press_event', quit)
-        plt.show()
-
-def oldplot(candlist):
-    """Plot the candidates in 'candlist' in the old style.
-
-        Inputs:
-            candlist: a list of singlepulse Candidate objects.
-                        (as defined in singlepulse/cands.py)
-    """
-    raise NotImplementedError("Old-style plot is not fully implemented.")
-    fig = plt.figure(figsize=(8.5, 11))
-    sortedcands = cands.sorted_candlist(candlist, \
-                            cmp=cands.cmp_cand('sigma'))
-    sigmas = sortedcands.sigma
-    times = sortedcands.time
-    DMs = sortedcands.DM
-    downfacts = sortedcands.downfact
-    dmtime_ax = plt.axes((0.1, 0.1, 0.85, 0.5))
-    plt.scatter(times, DMs, c=downfacts, \
-                        s=np.clip((sigmas-5)**2+5, 5, 200), \
-                        cmap=matplotlib.cm.GnBu)
-    plt.xlabel("Time (s)", size="small")
-    plt.ylabel(r"DM (pc cm$^{-3}$)", size="small")
-    cb = plt.colorbar()
-    cb.set_label("Downfactor (bins - CONVERT TO TIME!)", rotation=90, size="small")
-
-    snrhist_ax = plt.axes((0.1, 0.65, 0.2, 0.25))
-    plt.hist(sigmas, int(np.ptp(sigmas)+1), (sigmas.min(), sigmas.max()), \
-                histtype='step', ec='k')
-    plt.xlabel("Sigma")
-    plt.ylabel("Number of pulses")
-
-    dmhist_ax = plt.axes((0.35, 0.65, 0.2, 0.25))
-    plt.hist(DMs, bins=sorted(candlist.infos.keys()), histtype='step', ec='k')
-
-    snrdm_ax = plt.axes((0.6, 0.65, 0.2, 0.25))
-    plt.plot(DMs, sigmas, 'k,')
-
-def newplot(candlist, timelim=None, minsigma=None):
+def plot(candlist, timelim=None, minsigma=None, allDMs=None):
     """Plot the candidates in 'candlist' in the new style.
 
         Inputs:
@@ -82,6 +16,13 @@ def newplot(candlist, timelim=None, minsigma=None):
                         (as defined in singlepulse/cands.py)
             timelim: limits on time. (Default: None)
             minsigma: minimum sigma. (Default: None)
+            allDMs: List of DMs searched. This list should include
+                DMs where no SP candidates were found.
+                (Default: use DMs from candlist. This may cause some
+                    plots to look funny if some DMs have no cands.)
+    
+        Output:
+            fig: The matplotlib Figure that was created.
     """
     fig = plt.figure(figsize=(11, 8.5))
     sortedcands = cands.sorted_candlist(candlist, \
@@ -89,8 +30,9 @@ def newplot(candlist, timelim=None, minsigma=None):
     sigmas = sortedcands.sigma
     times = sortedcands.time
     DMs = sortedcands.DM # DMs of Candidates
-    allDMs = sorted(candlist.infos.keys()) # List of DMs searched (including 
-                                           # those where no candidates were found).
+    if allDMs is None:
+        # List of DMs
+        allDMs = np.unique(DMs)
     duration = sortedcands.duration
     dmtime_ax = plt.axes((0.1, 0.1, 0.5, 0.6))
     plt.scatter(times, DMs, c=duration*1000, \
@@ -132,7 +74,7 @@ def newplot(candlist, timelim=None, minsigma=None):
     plt.setp(snrdm_ax.xaxis.get_ticklabels(), size='x-small')
     
     dmtime_ax.set_ylim(allDMs[0], allDMs[-1]) # allDMs is sorted
-    info0 = candlist.infos[allDMs[0]] # infodata object of lowest DM timeseries
+    info0 = candlist[np.argmin(candlist.DM)].inf
     if timelim is not None:
         dmtime_ax.set_xlim(max(0, timelim[0]), min(info0.N*info0.dt, timelim[-1]))
     else:
@@ -169,3 +111,5 @@ def newplot(candlist, timelim=None, minsigma=None):
         plt.figtext(0.3, 0.73, "Sigma threshold: %g" % minsigma)
     else:
         plt.figtext(0.3, 0.73, "Simga threshold: 0")
+    
+    return fig

@@ -78,7 +78,6 @@ def find_single_pulses(datfn, downfacts, threshold, search_badblocks=False):
                                                     numchunks, info)):
         for downfact in downfacts:
             tmpcandlist = chunk.search(threshold, downfact)
-            tmpcandlist.add_info(info)
             tmpcandlist.prune_related1()
             candlist += tmpcandlist
 
@@ -306,6 +305,7 @@ class Chunk(object):
             hibins = np.flatnonzero(smoothdata>threshold)
             for localbin in hibins:
                 bin = localbin+self.lobin
-                candlist.append(cands.Candidate(self.info.DM, smoothdata[localbin], 
-                                                self.info.dt*bin, bin, factor))
+                cand = cands.Candidate(self.info.DM, smoothdata[localbin], 
+                                    self.info.dt*bin, bin, factor, self.info)
+                candlist.append(cand)
         return candlist
